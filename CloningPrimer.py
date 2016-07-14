@@ -272,19 +272,19 @@ print('common homology Tm: ', common_Tm_hom, 'C, full primer Tm: ', Tm, 'C, hete
 
 #write output into file with gene name as filename
 with open('%s.txt' % gene_name, 'w') as file:
-    file.write('forward primer: ' + flanking_list[0][0] + primer1 + '\n')
-    file.write('homology Tm: ' + str(pr1_Tm_hom) + '\n')
+	file.write('forward primer: ' + flanking_list[0][0] + primer1 + '\n')
+	file.write('homology Tm: ' + str(pr1_Tm_hom) + '\n')
 	file.write('homology region dG: ' + str(Delta_G_primer1_hom) + '\n')
-    file.write('full primer Tm: ' + str(pr1_Tm) + '\n')
-    file.write('homodimer dG: ' + str(flanking_list[0][2]) + ' kcal/mole\n')
-    file.write('reverse primer: ' + flanking_list[0][1] + primer1 + '\n')
-    file.write('homology Tm: ' + str(pr2_Tm_hom) + '\n')
+	file.write('full primer Tm: ' + str(pr1_Tm) + '\n')
+	file.write('homodimer dG: ' + str(flanking_list[0][2]) + ' kcal/mole\n')
+	file.write('reverse primer: ' + flanking_list[0][1] + primer1 + '\n')
+	file.write('homology Tm: ' + str(pr2_Tm_hom) + '\n')
 	file.write('homology region dG: ' + str(Delta_G_primer2_hom) + '\n')
-    file.write('full primer Tm: ' + str(pr2_Tm) + '\n')
-    file.write('homodimer dG: ' + str(flanking_list[0][3]) + ' kcal/mole\n')
-    file.write('common homology Tm: ' + str(common_Tm_hom) + '\n')
-    file.write('full primer Tm: ' + str(Tm) + '\n')
-    file.write('heterodimer deltaG: ' + str(flanking_list[0][4]))
+	file.write('full primer Tm: ' + str(pr2_Tm) + '\n')
+	file.write('homodimer dG: ' + str(flanking_list[0][3]) + ' kcal/mole\n')
+	file.write('common homology Tm: ' + str(common_Tm_hom) + '\n')
+	file.write('full primer Tm: ' + str(Tm) + '\n')
+	file.write('heterodimer deltaG: ' + str(flanking_list[0][4]))
 
 
 
