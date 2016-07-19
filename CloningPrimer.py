@@ -1,10 +1,11 @@
 #input sequences
-gene_name ='Msn2'
-forward_sequence = 'atgacggtcgaccatgatttcaatagcgaagatattttat'
-reverse_sequence = 'acgccgaagatttagcgacgttataacaaaccaagagctc'
-restriction1 = 'GCGGCCGC' #NotI
-restriction2 = 'CCTGCAGG' #SbfI
-
+gene_name ='ZF974'
+forward_sequence = 'gagcgccccttccagtgtcgcatttgcatgcggaactttt'
+reverse_sequence = 'aaaaactggtttgagagttcacctaaaaacccacctgaga'
+restriction1 = 'CTCGAGAAAAAAATG' #XhoI-Kozak-ATG
+restriction2 = 'ggagatggtgctggattgattgatATCGAT' #linker1-ClaI
+flanking1 = 'ATATTA'
+flanking2 = 'ATATTA'
 
 #initialization
 import numpy as np
@@ -89,21 +90,32 @@ def deltaGcalculatorIDT(seq1, seq2):
     match = re.search(r'(\+?-?\d+\.?\d*) kcal\/mole', result)
     if match:
         Delta_G_primer2 = float(match.group(1))
+    else:
+        time.sleep(3*delay)
+        result= browser2.find_element_by_css_selector('div.well:nth-child(5) > span:nth-child(2)').text
+        match = re.search(r'(\+?-?\d+\.?\d*) kcal\/mole', result)
+        Delta_G_primer2 = float(match.group(1))
     return (Delta_G_primer1, Delta_G_primer2)
 	
 def homodimer_dG(seq):
 #get homodimer deltaG of seq from IDT's website
     delay = 3 # seconds
+    match = 0
     elem = browser2.find_element_by_css_selector('textarea.form-control')
     elem.send_keys(seq)
     button = browser2.find_element_by_css_selector('button.btn:nth-child(3)')
     button.click()
     time.sleep(delay)
-    result= browser2.find_element_by_css_selector('div.well:nth-child(5) > span:nth-child(2)').text
-
-    match = re.search(r'(\+?-?\d+\.?\d*) kcal\/mole', result)
-    if match:
-        Delta_G = float(match.group(1))
+    for i in range(1,300,1):
+        time.sleep(1)
+        result= browser2.find_element_by_css_selector('div.well:nth-child(5) > span:nth-child(2)').text
+        match = re.search(r'(\+?-?\d+\.?\d*) kcal\/mole', result)
+        if match:
+            Delta_G = float(match.group(1))
+            break
+    if (i == 300):
+        print('Timeout on IDTs website')
+    
     elem.clear()
     return (Delta_G)
 
@@ -149,10 +161,11 @@ browser2 = webdriver.Chrome()
 browser2.get('http://www.idtdna.com/calc/analyzer')
 
 
-#optimize forward primer length to get Tm = 63
-pr1_Tm = 72
-i = len(forward_sequence)
-while (pr1_Tm > 60):
+#optimize forward primer length to get Tm = 60
+pr1_Tm = 0
+#i = len(forward_sequence)
+i = 10
+while (pr1_Tm < 60 and i < len(forward_sequence)):
     elem_NEBpr1 = browser1.find_element_by_css_selector('#p1')
     elem_NEBpr1.send_keys(forward_sequence[0:i])
     result_NEBpr1= browser1.find_element_by_css_selector('#tm1 > div:nth-child(2) > strong:nth-child(5)').text
@@ -160,17 +173,16 @@ while (pr1_Tm > 60):
     match = re.search(r'Tm: (\d+) °C', result_NEBpr1)
     if match:
         pr1_Tm = float(match.group(1))
-    i=i-1
+    i=i+1
     elem_NEBpr1.clear()
-i=i+1
+i=i-1
 #print(i) #length of forward oligo with Tm = 60
 #print(forward_sequence[0:i])
 
-#optimize reverse primer length to get Tm = 63
-pr2_Tm = 72
-j = 0
-while (pr2_Tm > 60):
-    
+#optimize reverse primer length to get Tm = 60
+pr2_Tm = 0
+j = len(reverse_sequence)-10
+while (pr2_Tm < 60 and j >= 0):
     elem_NEBpr2 = browser1.find_element_by_css_selector('#p2')
     elem_NEBpr2.send_keys(reverse_sequence[j:len(reverse_sequence)])
     result_NEBpr2= browser1.find_element_by_css_selector('#tm2 > div:nth-child(2) > strong:nth-child(5)').text
@@ -178,9 +190,9 @@ while (pr2_Tm > 60):
     match = re.search(r'Tm: (\d+) °C', result_NEBpr2)
     if match:
         pr2_Tm = float(match.group(1))
-    j=j+1
+    j=j-1
     elem_NEBpr2.clear()
-j=j-1
+j=j+1
 #print(len(reverse_sequence)-j) # length of reverse oligo with Tm = 60
 #print(reverse_sequence[j:len(reverse_sequence)])
 
@@ -192,8 +204,6 @@ common_Tm_hom, pr1_Tm_hom, pr2_Tm_hom = TmcalculatorNEB(primer1_hom, primer2_hom
 Delta_G_primer1_hom, Delta_G_primer2_hom = deltaGcalculatorIDT(primer1_hom, primer2_hom)
 
 #add restriction enzyme sites and 6 bp AT-rich sequence at 5' end
-flanking1 = 'ATATTA'
-flanking2 = 'ATATTA'
 primer1 =  restriction1 + primer1_hom
 primer2 = ReverseComplement(restriction2) + primer2_hom
 
@@ -250,16 +260,18 @@ flanking2_list = flanking2_list[0:5]
 #until get a list of 10 pairs with lower than 1C difference in Tm and lower than -10 kcal/mole heterodimer deltaG
 flanking_list=[]
 for i in range(0,5,1):
-    for j in range(0,5,1):
-        Tm, pr1_Tm, pr2_Tm=TmcalculatorNEB(flanking1_list[i][0] + primer1 ,flanking2_list[j][0] + primer2)
-        if abs(pr1_Tm - pr2_Tm) < 1 and len(flanking_list)<=10 :
-            dG_hetero = heterodimer_dG(flanking1_list[i][0] + primer1, flanking2_list[j][0] + primer2)
-            if dG_hetero > -10:
-                flanking_list.append((flanking1_list[i][0], flanking2_list[j][0],flanking1_list[i][1], flanking2_list[j][1], dG_hetero))
-    if len(flanking_list) > 10:
+	for j in range(0,5,1):
+		Tm, pr1_Tm, pr2_Tm=TmcalculatorNEB(flanking1_list[i][0] + primer1 ,flanking2_list[j][0] + primer2)
+		#if abs(pr1_Tm - pr2_Tm) < 2 and len(flanking_list)<=10 :
+		dG_hetero = heterodimer_dG(flanking1_list[i][0] + primer1, flanking2_list[j][0] + primer2)
+		if dG_hetero > -10:
+			flanking_list.append((flanking1_list[i][0], flanking2_list[j][0],flanking1_list[i][1], flanking2_list[j][1], dG_hetero))
+	if len(flanking_list) > 10:
                 break
 flanking_list.sort(key=lambda t: t[4]) 
 
+if len(flanking_list) < 1:
+	print('No primer pairs found')
 #read out full primer Tms for the top hit
 Tm, pr1_Tm, pr2_Tm=TmcalculatorNEB(flanking_list[0][0] + primer1 ,flanking_list[0][1] + primer2)
 
@@ -277,7 +289,7 @@ with open('%s.txt' % gene_name, 'w') as file:
 	file.write('homology region dG: ' + str(Delta_G_primer1_hom) + '\n')
 	file.write('full primer Tm: ' + str(pr1_Tm) + '\n')
 	file.write('homodimer dG: ' + str(flanking_list[0][2]) + ' kcal/mole\n')
-	file.write('reverse primer: ' + flanking_list[0][1] + primer1 + '\n')
+	file.write('reverse primer: ' + flanking_list[0][1] + primer2 + '\n')
 	file.write('homology Tm: ' + str(pr2_Tm_hom) + '\n')
 	file.write('homology region dG: ' + str(Delta_G_primer2_hom) + '\n')
 	file.write('full primer Tm: ' + str(pr2_Tm) + '\n')
@@ -285,7 +297,3 @@ with open('%s.txt' % gene_name, 'w') as file:
 	file.write('common homology Tm: ' + str(common_Tm_hom) + '\n')
 	file.write('full primer Tm: ' + str(Tm) + '\n')
 	file.write('heterodimer deltaG: ' + str(flanking_list[0][4]))
-
-
-
-
